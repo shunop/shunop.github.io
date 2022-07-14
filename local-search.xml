@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<search>
+  
+  
+  
+  <entry>
+    <title>vmware多节点centos搭建</title>
+    <link href="/blog/202112/vmware%E5%A4%9A%E8%8A%82%E7%82%B9centos%E6%90%AD%E5%BB%BA/"/>
+    <url>/blog/202112/vmware%E5%A4%9A%E8%8A%82%E7%82%B9centos%E6%90%AD%E5%BB%BA/</url>
+    
+    <content type="html"><![CDATA[<h1 id="vmware多节点centos搭建"><a href="#vmware多节点centos搭建" class="headerlink" title="vmware多节点centos搭建"></a>vmware多节点centos搭建</h1><blockquote><ol><li>下载镜像（略）</li><li>安装vmware（略）</li><li>安装centos</li><li>配置网络</li><li>检查验证网络</li><li>节点之间的联通性测试</li><li>从图形界面模式切换到命令行模式</li></ol></blockquote><p>本文的侧重点是配置多节点的网络，每个节点都是固定ip。</p><p>测试环境：</p><ul><li>镜像：CentOS-7-x86_64-DVD-2003.iso</li><li>宿主机：macOS Big Sur</li><li>软件：VMware Fusion</li></ul><figure class="highlight stata"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs stata">NAT模式：您的主机（<span class="hljs-keyword">Mac</span>）将充当虚拟机网络的网关，您的网络（<span class="hljs-keyword">Mac</span>除外）中的任何人都无法看到它们，因为它们位于单独的网络中<br><br>桥接模式：您的主机（<span class="hljs-keyword">Mac</span>）将与虚拟机共享其网络连接，它们将坐起来就像是您网络上的另一台计算机一样，网络上的每个人都将看到它们并能够与它们进行交互。<br></code></pre></td></tr></table></figure><h2 id="安装第一个节点"><a href="#安装第一个节点" class="headerlink" title="安装第一个节点"></a>安装第一个节点</h2><p>一路默认即可，cpu核心数和宿主机保持一致，网络选 NAT 模式，装的时候选择带桌面环境的GONE。</p><h2 id="配置网络"><a href="#配置网络" class="headerlink" title="配置网络"></a>配置网络</h2><p>安装好之后在宿主机上查找 NAT 的子网网段</p><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs shell">cat /Library/Preferences/VMware\ Fusion/vmnet8/nat.conf<br><span class="hljs-meta">#</span><span class="bash"><span class="hljs-comment"># 或者</span></span><br>grep gateway /Library/Preferences/VMware\ Fusion/vmnet8/nat.conf -A 3<br></code></pre></td></tr></table></figure><p>找到下面这一段文字</p><figure class="highlight ini"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs ini"><span class="hljs-comment"># NAT gateway address</span><br><span class="hljs-attr">ip</span> = <span class="hljs-number">192.168</span>.<span class="hljs-number">255.1</span><br><span class="hljs-attr">netmask</span> = <span class="hljs-number">255.255</span>.<span class="hljs-number">255.0</span><br></code></pre></td></tr></table></figure><p>解释：<code>网关 ip</code> 是 <code>192.168.255.1</code> ，<code>子网掩码</code>是 <code>255.255.255.0</code> ，所以我们的节点ip可以设置为 192.168.255.2-192.168.255.255 之间的任何一个。</p><p>node1=192.168.255.101；node2=192.168.255.102；</p><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs shell">cat /etc/sysconfig/network-scripts/ifcfg-ens33<br></code></pre></td></tr></table></figure><p>修改或添加这几项 其中 <code>GATEWAY</code> 后面填查出来的<code>网关ip</code>，<code>NETMASK</code>后面填查出来的<code>子网掩码</code>。</p><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><code class="hljs shell">BOOTPROTO=static<br>ONBOOT=yes<br><span class="hljs-meta">#</span><span class="bash"><span class="hljs-comment">#-----common-begin-----</span></span><br>GATEWAY=192.168.255.1<br>NETMASK=255.255.255.0<br>DNS1=192.168.255.1<br>DNS2=114.114.114.114<br><span class="hljs-meta">#</span><span class="bash"><span class="hljs-comment">#-----common-end-----</span></span><br><span class="hljs-meta">#</span><span class="bash"><span class="hljs-comment">#-----node1------</span></span><br>IPADDR=192.168.255.101<br><span class="hljs-meta">#</span><span class="bash"><span class="hljs-comment">#-----node2------</span></span><br><span class="hljs-meta">#</span><span class="bash">IPADDR=192.168.255.102</span><br><span class="hljs-meta">#</span><span class="bash"><span class="hljs-comment">#-----node3------</span></span><br><span class="hljs-meta">#</span><span class="bash">IPADDR=192.168.255.103</span><br><span class="hljs-meta">#</span><span class="bash"><span class="hljs-comment">#-----node4------</span></span><br><span class="hljs-meta">#</span><span class="bash">IPADDR=192.168.255.104</span><br></code></pre></td></tr></table></figure><p>保存退出，重启网络服务</p><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs shell">systemctl restart network<br></code></pre></td></tr></table></figure><h2 id="检查验证网络"><a href="#检查验证网络" class="headerlink" title="检查验证网络"></a>检查验证网络</h2><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs shell"><span class="hljs-meta">#</span><span class="bash"><span class="hljs-comment"># 1.查看 ens33 的网络配置 其中有 inet 192.168.255.101 就是配置生效了</span></span><br>ifconfig ens33<br><span class="hljs-meta">#</span><span class="bash"><span class="hljs-comment"># 2.测试和网关的联通性(如果上层网络环境屏蔽了ping用到的icmp报文，则dns解析是成功，</span></span><br><span class="hljs-meta">#</span><span class="bash"><span class="hljs-comment">#    但没有ping过程的回显。在多数情况下， ping基本可以反映网络的连通与否；</span></span><br><span class="hljs-meta">#</span><span class="bash"><span class="hljs-comment">#    在少数情况下， ping不通的时候网络也可能是联通好的。)</span></span><br>ping 192.168.255.1<br><span class="hljs-meta">#</span><span class="bash"><span class="hljs-comment"># 3.（可选）查看路由表</span></span><br>route -n<br><span class="hljs-meta">#</span><span class="bash"><span class="hljs-comment"># 4.（可选）查看链路</span></span><br>arp -a<br><span class="hljs-meta">#</span><span class="bash"><span class="hljs-comment"># 5.（可选）测试端口是否可访问</span></span><br>telnet www.baidu.com 80<br><span class="hljs-meta">#</span><span class="bash"><span class="hljs-comment"># 6. 访问百度</span></span><br>curl www.baidu.com<br></code></pre></td></tr></table></figure><p>在宿主机打开terminal工具 使用ssh命令连接节点 node1</p><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs shell">ssh -p 22 root@192.168.255.101<br></code></pre></td></tr></table></figure><p>至此第一个节点配置完成</p><h2 id="配置第二个节点"><a href="#配置第二个节点" class="headerlink" title="配置第二个节点"></a>配置第二个节点</h2><p>在<code>虚拟机资源库</code>中右键刚刚的<code>node1</code>点击<code>创建完整克隆</code>就多了一个节点，只需要在里面把网络ip配置好就行了。</p><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs shell">vim /etc/sysconfig/network-scripts/ifcfg-ens33<br><span class="hljs-meta">#</span><span class="bash">说明：1.在 IPADDR=192.168.255.101 前面加个<span class="hljs-string">&#x27;#&#x27;</span>，</span><br><span class="hljs-meta">#</span><span class="bash">     2.把 <span class="hljs-string">&#x27;#IPADDR=192.168.255.102&#x27;</span>前面的<span class="hljs-string">&#x27;#&#x27;</span>去掉。</span><br></code></pre></td></tr></table></figure><p>保存退出，重启网络服务</p><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs shell">systemctl restart network<br></code></pre></td></tr></table></figure><p>在宿主机打开terminal工具 使用ssh命令连接节点 node1</p><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs shell">ssh -p 22 root@192.168.255.102<br></code></pre></td></tr></table></figure><p>至此第二个节点配置完成</p><h2 id="测试两个节点之间的联通性"><a href="#测试两个节点之间的联通性" class="headerlink" title="测试两个节点之间的联通性"></a>测试两个节点之间的联通性</h2><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs shell"><span class="hljs-meta">#</span><span class="bash"> node1</span><br>[root@localhost ~]# telnet 192.168.255.102 22<br>Trying 192.168.255.102...<br>Connected to 192.168.255.102.<br>Escape character is &#x27;^]&#x27;.<br>Connection closed by foreign host.<br><span class="hljs-meta">#</span><span class="bash"> node2</span><br>[root@localhost ~]# telnet 192.168.255.101 22<br>Trying 192.168.255.101...<br>Connected to 192.168.255.101.<br>Escape character is &#x27;^]&#x27;.<br>Connection closed by foreign host.<br></code></pre></td></tr></table></figure><p>至此完成</p><h2 id="设置主机名"><a href="#设置主机名" class="headerlink" title="设置主机名"></a>设置主机名</h2><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs shell"><span class="hljs-meta">#</span><span class="bash"><span class="hljs-comment"># 查看当前信息</span></span><br>hostnamectl status<br><span class="hljs-meta">#</span><span class="bash"><span class="hljs-comment"># 设置主机名</span></span><br>hostnamectl set-hostname node101<br></code></pre></td></tr></table></figure><h2 id="centos7从图形界面模式切换到命令行模式"><a href="#centos7从图形界面模式切换到命令行模式" class="headerlink" title="centos7从图形界面模式切换到命令行模式"></a>centos7从图形界面模式切换到命令行模式</h2><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs shell"><span class="hljs-meta">#</span><span class="bash">查看centOS 7系统支持的启动模式</span><br>cat /etc/inittab<br><span class="hljs-meta">#</span><span class="bash">查看默认启动模式</span><br>systemctl get-default<br><br><span class="hljs-meta">#</span><span class="bash">设置为图形化界面模式</span><br>systemctl set-default graphical.target<br><span class="hljs-meta">#</span><span class="bash">设置为命令行模式</span><br>systemctl set-default multi-user.target<br><br><span class="hljs-meta">#</span><span class="bash">重启服务器</span><br>reboot<br></code></pre></td></tr></table></figure><p>如果第一次安装的时候没安装图形化界面则需要安装图形化的环境，再使用上面的命令切换</p><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs shell"><span class="hljs-meta">#</span><span class="bash">通过yum命令获取资源并安装图形化界面包，直到complete！</span><br>yum groupinstall &quot;GNOME Desktop&quot; &quot;Graphical Administration Tools&quot;<br></code></pre></td></tr></table></figure><p>==EOF==</p>]]></content>
+    
+    
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>知识点总结-20210715</title>
+    <link href="/blog/202107/%E7%9F%A5%E8%AF%86%E7%82%B9%E6%80%BB%E7%BB%93-20210715/"/>
+    <url>/blog/202107/%E7%9F%A5%E8%AF%86%E7%82%B9%E6%80%BB%E7%BB%93-20210715/</url>
+    
+    <content type="html"><![CDATA[<h1 id="知识点总结-20210715"><a href="#知识点总结-20210715" class="headerlink" title="知识点总结-20210715"></a>知识点总结-20210715</h1><p>spring</p><ul><li>spring IOC 控制反转</li><li>spring AOP 面向切面编程</li><li>springMVC的流程</li></ul><p>sql</p><ul><li><p>hql和sql的区别</p></li><li><p>复杂sql</p></li><li><p>plsql</p></li><li><p>sql优化</p><figure class="highlight markdown"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs markdown">避免使用<span class="hljs-code">`in`</span>和<span class="hljs-code">`not in`</span><br></code></pre></td></tr></table></figure></li></ul><p>mysql</p><ul><li><p>b-tree索引,b+tree索引,hash索引区别</p><figure class="highlight markdown"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs markdown">B树索引具有范围查找和前缀查找的能力，对于有N节点的B树，检索一条记录的复杂度为O(LogN)。相当于二分查找。哈希索引只能做等于查找，但是无论多大的Hash表，查找复杂度都是O(1)。<br>显然，如果值的差异性大，并且以等值查找（=、 &lt;、&gt;、in）为主，Hash索引是更高效的选择，它有O(1)的查找复杂度。如果值的差异性相对较差，并且以范围查找为主，B树是更好的选择，它支持范围查找。<br></code></pre></td></tr></table></figure></li></ul><ul><li><p>导致索引失效的例子</p><figure class="highlight markdown"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs markdown">单列索引存null;<br>键值较少的列,如性别;<br>前模糊查询(like &#x27;%xx&#x27;);<br>使用关键字or;<br>不遵循联合索引的最左原则;<br>隐性数据转换(定义的列类型是字符串,那一定要在条件中用引号包裹);<br>索引列运算(!=,+-<span class="hljs-emphasis">*/,count(索引列))</span><br></code></pre></td></tr></table></figure></li></ul><p>shardingsphere</p><ul><li><p>读写分离</p><figure class="highlight markdown"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs markdown">实现读写分离关键对象 <span class="hljs-code">`ShardingPreparedStatement`</span><br><br></code></pre></td></tr></table></figure></li></ul><ul><li>分库分表</li></ul><p>mybatis分页</p><p>线程池</p><ul><li>创建线程池的方式</li><li>并发问题</li></ul><p>rabbitMQ</p><p>redis</p><ul><li><p>数据结构</p></li><li><p><em>缓存雪崩</em></p></li><li><p><em>缓存穿透</em></p></li></ul><p>Linux命令</p><p>设计模式</p><ul><li>服务定位器模式</li><li>策略模式</li><li>模板模式</li></ul><p>定时任务</p><ul><li>xxl-job</li><li>crontab</li></ul><p>熔断限流</p><ul><li>hystrix与sentinel</li></ul><p>加密</p><ul><li>RSA</li><li>对称加密和非对称加密</li></ul><p>vue</p><ul><li>ajax异步调用</li><li>jquery</li><li>valuelist</li></ul><figure class="highlight awk"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs awk">springcloud<br>springboot<br>sentinel和 hystrix 熔断限流怎么限流的<br>对金融中台有什么自己的理解<span class="hljs-regexp">/想法/</span>好的建议<br>这段时间有什么收获<br><br></code></pre></td></tr></table></figure><ul><li><p>springcloud</p><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs plain">springcloud是整合了一系列微服务治理框架的解决方案。其中包含了<br></code></pre></td></tr></table></figure></li></ul><ul><li>云原生</li><li>jvm内存模型</li></ul>]]></content>
+    
+    
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>Mac软件</title>
+    <link href="/blog/202106/Mac%E8%BD%AF%E4%BB%B6/"/>
+    <url>/blog/202106/Mac%E8%BD%AF%E4%BB%B6/</url>
+    
+    <content type="html"><![CDATA[<h1 id="Mac软件"><a href="#Mac软件" class="headerlink" title="Mac软件"></a>Mac软件</h1><h3 id=""><a href="#" class="headerlink" title=""></a></h3><h3 id="终端相关"><a href="#终端相关" class="headerlink" title="终端相关"></a>终端相关</h3><h3 id="brew-安装的"><a href="#brew-安装的" class="headerlink" title="brew 安装的"></a>brew 安装的</h3><h3 id="文本（代码）编辑相关"><a href="#文本（代码）编辑相关" class="headerlink" title="文本（代码）编辑相关"></a>文本（代码）编辑相关</h3><h3 id="其它工具"><a href="#其它工具" class="headerlink" title="其它工具"></a>其它工具</h3><p>Amphetamine.app/ 【工具】【可设置系统不休眠时长】</p><h2 id="不常用软件"><a href="#不常用软件" class="headerlink" title="不常用软件"></a>不常用软件</h2><ol><li>uTools【工具】【额外占内存，花里胡哨】</li><li>sublime Text【文本编辑】【搜索功能不好用】【替代品：vscode】</li><li>UltraEdit【文本编辑】【每次退出时都会残留，只能强制退出，不过这个可以容忍】【替代品：vscode】</li></ol>]]></content>
+    
+    
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>大纲</title>
+    <link href="/blog/202104/%E5%A4%A7%E7%BA%B2/"/>
+    <url>/blog/202104/%E5%A4%A7%E7%BA%B2/</url>
+    
+    <content type="html"><![CDATA[<h1 id="大纲"><a href="#大纲" class="headerlink" title="大纲"></a>大纲</h1><ul><li><p><input disabled="" type="checkbox">  工欲善其事必先利其器</p><ul><li><input disabled="" type="checkbox"> IDEA<ul><li><input disabled="" type="checkbox"> IDEA-1高效插件</li><li><input disabled="" type="checkbox"> IDEA-2配置</li><li><input disabled="" type="checkbox"> IDEA-3常用功能</li><li><input disabled="" type="checkbox"> DataGrip-1配置</li></ul></li><li><input disabled="" type="checkbox"> MacOS<ul><li><input disabled="" type="checkbox"> macos如何使用只支持win的公司vpn</li><li><input disabled="" type="checkbox"> macos重装之自动批量安装脚本</li><li><input disabled="" type="checkbox"> macos设置pmset电池优化</li></ul></li><li><input disabled="" type="checkbox"> Windows<ul><li><input disabled="" type="checkbox"> hyper-V引起的虚拟机无法启动问题</li></ul></li></ul></li><li><p><input disabled="" type="checkbox">  Java技术</p><ul><li><input disabled="" type="checkbox"> mybatisPlus自定义插件过滤器实现自动分表</li><li><input disabled="" type="checkbox"> 对jeecgBoot框架的定制化优化</li><li><input disabled="" type="checkbox"> Java的图像识别</li><li><input disabled="" type="checkbox"> Java通过图像识别实现无人值守自动脚本</li></ul></li><li><p><input disabled="" type="checkbox">  Gradle</p><ul><li><input disabled="" type="checkbox"> gradle配置本地环境</li></ul></li><li><p><input disabled="" type="checkbox">  python编程</p><ul><li><input disabled="" type="checkbox"> 使用python实现自动化测试</li><li><input disabled="" type="checkbox"> 接口压测脚本</li><li><input disabled="" type="checkbox"> 图像识别实现自动扫雷脚本</li></ul></li><li><p><input disabled="" type="checkbox">  Linux</p><ul><li><p><input disabled="" type="checkbox">  centos</p></li><li><p><input disabled="" type="checkbox">  centos-云服务器初始化脚本</p><ul><li><p>使用swap增加虚拟内存</p></li><li><p>防火墙设置</p></li><li><p>自动封禁ip</p></li><li><p>一键搭建DST收费服务器脚本</p></li></ul></li><li><p><input disabled="" type="checkbox"> </p></li></ul></li></ul>]]></content>
+    
+    
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>python 那些事</title>
+    <link href="/blog/202104/python-python-%E9%82%A3%E4%BA%9B%E4%BA%8B/"/>
+    <url>/blog/202104/python-python-%E9%82%A3%E4%BA%9B%E4%BA%8B/</url>
+    
+    <content type="html"><![CDATA[<h1 id="python-那些事"><a href="#python-那些事" class="headerlink" title="python 那些事"></a>python 那些事</h1>]]></content>
+    
+    
+    <categories>
+      
+      <category>python</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>python</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>Hello blog</title>
+    <link href="/blog/202103/hello-world/"/>
+    <url>/blog/202103/hello-world/</url>
+    
+    <content type="html"><![CDATA[<p>Welcome to <a href="https://hexo.io/">Hexo</a>! This is your very first post. Check <a href="https://hexo.io/docs/">documentation</a> for more info. If you get any problems when using Hexo, you can find the answer in <a href="https://hexo.io/docs/troubleshooting.html">troubleshooting</a> or you can ask me on <a href="https://github.com/hexojs/hexo/issues">GitHub</a>.</p><h2 id="Quick-Start"><a href="#Quick-Start" class="headerlink" title="Quick Start"></a>Quick Start</h2><h3 id="Create-a-new-post"><a href="#Create-a-new-post" class="headerlink" title="Create a new post"></a>Create a new post</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">$ hexo new <span class="hljs-string">&quot;My New Post&quot;</span><br></code></pre></td></tr></table></figure><p>More info: <a href="https://hexo.io/docs/writing.html">Writing</a></p><h3 id="Run-server"><a href="#Run-server" class="headerlink" title="Run server"></a>Run server</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">$ hexo server<br></code></pre></td></tr></table></figure><p>More info: <a href="https://hexo.io/docs/server.html">Server</a></p><h3 id="Generate-static-files"><a href="#Generate-static-files" class="headerlink" title="Generate static files"></a>Generate static files</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">$ hexo generate<br></code></pre></td></tr></table></figure><p>More info: <a href="https://hexo.io/docs/generating.html">Generating</a></p><h3 id="Deploy-to-remote-sites"><a href="#Deploy-to-remote-sites" class="headerlink" title="Deploy to remote sites"></a>Deploy to remote sites</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">$ hexo deploy<br></code></pre></td></tr></table></figure><p>More info: <a href="https://hexo.io/docs/one-command-deployment.html">Deployment</a></p>]]></content>
+    
+    
+    <categories>
+      
+      <category>cdemo</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>tdemo3</tag>
+      
+      <tag>tdemo4</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  
+</search>
